@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Жаркоин Кликер</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --vk-blue: #0077FF;
+            --bg-color: #EBEDF0; 
+            --text-main: #2C2D2E;
+            --text-muted: #818C99;
+            --white: #ffffff;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            color: var(--text-main);
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        .header { text-align: center; margin-bottom: 20px; }
+        #score-label { font-size: 0.9rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 2px; }
+        #score { font-size: 4.5rem; font-weight: 900; color: var(--vk-blue); line-height: 1; }
+        #timer-container { height: 20px; margin-top: 10px; font-weight: 700; color: #FF3B30; visibility: hidden; font-size: 0.9rem;}
+
+        .cannon-stage {
+            position: relative;
+            width: 240px;
+            height: 240px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--white);
+            border-radius: 50%;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+            transition: transform 0.05s;
+        }
+        .cannon-img { width: 160px; filter: drop-shadow(0 0 8px rgba(0, 119, 255, 0.4)); }
+        .cannon-stage:active { transform: scale(0.95); }
+
+        .plus-one {
+            position: absolute;
+            font-size: 2.2rem;
+            font-weight: 900;
+            color: var(--vk-blue);
+            pointer-events: none;
+            animation: plusMove 0.6s ease-out forwards;
+        }
+
+        @keyframes plusMove {
+            0% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-120px); }
+        }
+
+        /* ИСПРАВЛЕННЫЙ БЛОК С КНОПКАМИ */
+        .controls { 
+            width: 100%; 
+            max-width: 320px; /* Ограничиваем ширину */
+            margin: 40px auto 0 auto; /* Строго по центру */
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; /* Центрируем содержимое */
+            gap: 12px; 
+            padding: 0 20px;
+            box-sizing: border-box;
+        }
+        
+        .btn {
+            width: 100%; /* Кнопки занимают всю ширину контейнера */
+            padding: 16px;
+            border: none;
+            border-radius: 14px;
+            font-size: 1rem;
+            font-family: 'Inter', sans-serif; /* Принудительно красивый шрифт */
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: 0.2s;
+            box-sizing: border-box;
+        }
+
+        .btn-blue { background: var(--vk-blue); color: white; box-shadow: 0 6px 20px rgba(0, 119, 255, 0.2); }
+        .btn-white { background: var(--white); color: var(--vk-blue); border: 1px solid rgba(0, 119, 255, 0.2); }
+        .btn:active { transform: scale(0.97); }
+
+        /* ОКНО ЛИДЕРОВ */
+        #leaderboard {
+            position: fixed;
+            bottom: -100%;
+            left: 0;
+            width: 100%;
+            height: 70%;
+            background: var(--white);
+            border-radius: 24px 24px 0 0;
+            box-shadow: 0 -10px 40px rgba(0,0,0,0.1);
+            transition: bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.1);
+            z-index: 100;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        #leaderboard.active { bottom: 0; }
+        .lb-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .lb-title { font-size: 1.3rem; font-weight: 900; }
+        .lb-close { font-size: 1.5rem; color: var(--text-muted); cursor: pointer; }
+        .lb-list { overflow-y: auto; height: calc(100% - 60px); }
+        .lb-item { display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid #F0F2F5; }
+        .rank { width: 30px; font-weight: 900; color: var(--vk-blue); }
+        .name { flex-grow: 1; font-weight: 600; }
+        .score { font-weight: 700; color: var(--text-muted); }
+
+        svg { stroke: var(--vk-blue) !important; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div id="score-label">Твой баланс</div>
+        <div id="score">0</div>
+        <div id="timer-container">МЕГА-УДАР: <span id="timer-seconds">180</span>с</div>
+    </div>
+
+    <div class="cannon-stage" onclick="clickCannon(event)">
+        <svg class="cannon-img" viewBox="0 0 100 100">
+            <g fill="none" stroke="#0077FF" stroke-width="3">
+                <path d="M50,15 C30,15 15,30 15,50 C15,70 30,85 50,85 C70,85 85,70 85,50 C85,30 70,15 50,15 Z" opacity="0.2"/>
+                <path d="M50,25 C35,25 25,35 25,50 C25,65 35,75 50,75 C65,75 75,65 75,50 C75,35 65,25 50,25 Z"/>
+                <path d="M50,35 C42,35 35,42 35,50 C35,58 42,65 50,65 C58,65 65,58 65,50 C65,42 58,35 50,35 Z"/>
+                <path d="M30,45 L10,55 M70,45 L90,55 M10,40 L30,35 M90,40 L70,35 M40,20 L40,15 M59,20 L59,15 M20,80 L10,90 M80,80 L90,90"/>
+            </g>
+        </svg>
+    </div>
+
+    <div class="controls">
+        <button class="btn btn-blue" onclick="requestMegaClick()">🚀 МЕГА-УДАР (15 ⭐)</button>
+        <button class="btn btn-white" onclick="toggleLB(true)">🏆 ТАБЛИЦА ЛИДЕРОВ</button>
+    </div>
+
+    <div id="leaderboard">
+        <div class="lb-header">
+            <div class="lb-title">Топ игроков</div>
+            <div class="lb-close" onclick="toggleLB(false)">✕</div>
+        </div>
+        <div class="lb-list" id="lb-items"></div>
+    </div>
+
+    <script>
+        let tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.setHeaderColor('#EBEDF0');
+
+        let count = 0;
+        let power = 1;
+        let bonusTimer = null;
+
+        // 1. ЗАГРУЗКА БАЛАНСА ИЗ ОБЛАКА TELEGRAM
+        tg.CloudStorage.getItem('jarkoin_balance', function(err, value) {
+            if (!err && value) {
+                count = parseInt(value);
+                document.getElementById('score').innerText = count;
+            }
+        });
+
+        // 2. ПРОВЕРКА, ЗАПУЩЕНА ЛИ ИГРА С БОНУСОМ (ПОСЛЕ ОПЛАТЫ)
+        let startParam = tg.initDataUnsafe?.start_param;
+        if (startParam === 'mega_bonus') {
+            activateMegaClick();
+        }
+
+        // СОХРАНЕНИЕ КАЖДЫЕ 2 СЕКУНДЫ
+        setInterval(() => {
+            tg.CloudStorage.setItem('jarkoin_balance', count.toString());
+        }, 2000);
+
+        function clickCannon(event) {
+            count += power;
+            document.getElementById('score').innerText = count;
+            tg.HapticFeedback.impactOccurred(power > 1 ? 'heavy' : 'light'); 
+            createPlusOne(event);
+        }
+
+        function createPlusOne(event) {
+            const plus = document.createElement('div');
+            plus.classList.add('plus-one');
+            if (power > 1) plus.style.color = '#FF3B30';
+            plus.innerText = '+' + power;
+            const rect = event.currentTarget.getBoundingClientRect();
+            plus.style.left = (event.clientX - rect.left - 20) + 'px';
+            plus.style.top = (event.clientY - rect.top - 40) + 'px';
+            event.currentTarget.appendChild(plus);
+            setTimeout(() => plus.remove(), 600);
+        }
+
+        // ЗАПРОС НА ПОКУПКУ (ЗАКРОЕТ APP И ОТПРАВИТ БОТУ ТЕКСТ)
+        function requestMegaClick() {
+            tg.HapticFeedback.notificationOccurred('warning');
+            tg.sendData("buy_15_stars"); 
+        }
+
+        // АКТИВАЦИЯ БОНУСА
+        function activateMegaClick() {
+            power = 15;
+            let timeLeft = 180;
+            document.getElementById('timer-container').style.visibility = 'visible';
+            if (bonusTimer) clearInterval(bonusTimer);
+            bonusTimer = setInterval(() => {
+                timeLeft--;
+                document.getElementById('timer-seconds').innerText = timeLeft;
+                if (timeLeft <= 0) {
+                    clearInterval(bonusTimer);
+                    power = 1;
+                    document.getElementById('timer-container').style.visibility = 'hidden';
+                }
+            }, 1000);
+        }
+
+        // ТАБЛИЦА ЛИДЕРОВ
+        function toggleLB(show) {
+            document.getElementById('leaderboard').classList.toggle('active', show);
+            if(show) {
+                // Временно показываем твой баланс в топе + моковые данные
+                const list = document.getElementById('lb-items');
+                const mockData = [
+                    {name: tg.initDataUnsafe?.user?.first_name || "Ты", score: count},
+                    {name: "WalleGames", score: 2100},
+                    {name: "Taisiya", score: 1850},
+                ].sort((a, b) => b.score - a.score); // Сортируем по убыванию
+                
+                list.innerHTML = mockData.map((player, i) => `
+                    <div class="lb-item">
+                        <div class="rank">${i+1}</div>
+                        <div class="name">${player.name}</div>
+                        <div class="score">${player.score} ☄️</div>
+                    </div>
+                `).join('');
+            }
+        }
+    </script>
+</body>
+</html>
